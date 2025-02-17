@@ -10,7 +10,7 @@ from imageio_ffmpeg import get_ffmpeg_exe
 from pandarallel import pandarallel
 from scenedetect import FrameTimecode
 from tqdm import tqdm
-from moviepy.editor import VideoFileClip, ImageSequenceClip #ADD
+from moviepy.editor import VideoFileClip, ImageSequenceClip
 
 tqdm.pandas()
 
@@ -32,7 +32,7 @@ def process_single_row(row, args):
     #     return False
 
     if args.no_scene_split: #如果no_scene_split为True，则按照新的裁剪策略
-        split_video_fixed_frames(video_path, args.save_dir, shorter_size=args.shorter_size,target_fps=args.target_fps, output_fps=args.output_fps, logger=logger) #ADD output_fps here
+        split_video_fixed_frames(video_path, args.save_dir, shorter_size=args.shorter_size, output_fps=args.output_fps, logger=logger) #ADD output_fps here
         return True
 
 
@@ -69,7 +69,6 @@ def process_single_row(row, args):
         save_dir=save_dir,
         min_seconds=args.min_seconds,
         max_seconds=args.max_seconds,
-        target_fps=args.target_fps,
         shorter_size=shorter_size,
         logger=logger,
         output_fps=args.output_fps  # Also pass output_fps here
@@ -82,11 +81,10 @@ def split_video_scene_detect(
     save_dir,
     min_seconds=2,
     max_seconds=15,
-    target_fps=30,
     shorter_size=None,
     verbose=False,
     logger=None,
-    output_fps = None # NEW PARAMETER
+    output_fps = None
 ):
     """
     Splits the video based on scene detection and sets output FPS if specified.
@@ -130,7 +128,10 @@ def split_video_scene_detect(
                     video_clip = video_clip.set_fps(output_fps)
 
                 # Write the modified video to the output file
-                video_clip.write_videofile(save_path, fps=output_fps if output_fps is not None else video_clip.fps)
+                if output_fps:
+                    video_clip.write_videofile(save_path, fps=output_fps)
+                else:
+                    video_clip.write_videofile(save_path)
 
                 save_path_list.append(save_path)
                 if verbose:
@@ -141,18 +142,37 @@ def split_video_scene_detect(
 
     return save_path_list
 
-def split_video_fixed_frames(video_path, save_dir, shorter_size=None, target_fps=None, logger=None, output_fps=None):
-    """Splits video into three 17-frame clips from start, middle, and end (minus 16 frames), and sets output FPS if specified."""
+def convert_video_to_cfr(input_path, output_path, target_fps, logger=None):
+    try:
+        clip = VideoFileClip(input_path)
+        clip = clip.set_fps(target_fps)
+        clip.write_videofile(output_path, fps=target_fps, codec="libx264", audio_codec="aac") # 可以设置更多参数，如编码器
+        print_log(f"Converted video to fixed FPS: {output_path}", logger=logger)
+        clip.close()
+        return True
+    except Exception as e:
+        print_log(f"Error converting video: {e}", logger=logger)
+        return False
+
+
+def split_video_fixed_frames(video_path, save_dir, shorter_size=None, logger=None, output_fps: int = 12):
     fname = os.path.basename(video_path)
     fname_wo_ext = os.path.splitext(fname)[0]
+    temp_video_path = os.path.join(save_dir, f"{fname_wo_ext}_temp.mp4") # 临时文件路径
 
-    cap = cv2.VideoCapture(video_path)
+    # 转换为固定帧率
+    if not convert_video_to_cfr(video_path, temp_video_path, output_fps, logger):
+        print_log(f"Failed to convert {video_path} to fixed FPS. Skipping.", logger=logger)
+        return
+
+    cap = cv2.VideoCapture(temp_video_path)
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     fps = cap.get(cv2.CAP_PROP_FPS)
 
     if total_frames < 17:
-        print_log(f"Video '{video_path}' has fewer than 17 frames. Skipping.", logger=logger)
+        print_log(f"Video '{video_path}' has fewer than 17 frames after conversion. Skipping.", logger=logger)
         cap.release()
+        os.remove(temp_video_path)  # 删除临时文件
         return
 
     start_frames = [0, total_frames // 2, max(0, total_frames - 17)]
@@ -167,42 +187,41 @@ def split_video_fixed_frames(video_path, save_dir, shorter_size=None, target_fps
             print_log(f"File '{save_path}' already exists.  Skipping.", logger=logger)
             continue
 
-        # Read frames using OpenCV
+        # 读取帧 using OpenCV
         frames = []
         cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
         for _ in range(17):
             ret, frame = cap.read()
             if not ret:
                 break
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             frames.append(frame)
 
-        # Create a temporary video clip using MoviePy
-        try:
-            # Convert frames to a MoviePy clip
-            clip = ImageSequenceClip(frames, fps=fps)  # Use original fps initially
+        if len(frames) != 17:
+            continue
 
-            # Resize if shorter_size is specified
-            if shorter_size is not None:
-                original_width, original_height = clip.size
-                if original_width > original_height:
-                    new_width = int(shorter_size * original_width / original_height)
-                    clip = clip.resize((new_width, shorter_size))
-                else:
-                    new_height = int(shorter_size * original_height / original_width)
-                    clip = clip.resize((shorter_size, new_height))
+        # 转换帧为 MoviePy clip
+        frame_duration = 1 / output_fps
+        original_duration = [frame_duration] * len(frames)
+        clip = ImageSequenceClip(frames, durations=original_duration)
 
-            # set the output FPS if specified
-            if output_fps is not None:
-                clip = clip.set_fps(output_fps)
 
-            clip.write_videofile(save_path, fps= output_fps if output_fps is not None else clip.fps)
+        # 调整大小 if shorter_size is specified
+        if shorter_size is not None:
+            original_width, original_height = clip.size
+            if original_width > original_height:
+                new_width = int(shorter_size * original_width / original_height)
+                clip = clip.resize((new_width, shorter_size))
+            else:
+                new_height = int(shorter_size * original_height / original_width)
+                clip = clip.resize((shorter_size, new_height))
 
-            print_log(f"Video clip saved to '{save_path}'", logger=logger)
+        clip.write_videofile(save_path, fps=output_fps)
 
-        except Exception as e:
-            print_log(f"Error processing {video_path}: {e}", logger=logger)
+        print_log(f"Video clip saved to '{save_path}'", logger=logger)
 
     cap.release()
+    os.remove(temp_video_path)
 
 
 def parse_args():
@@ -215,7 +234,6 @@ def parse_args():
     parser.add_argument(
         "--max_seconds", type=float, default=None, help="if not None, clip longer than max_seconds is truncated"
     )
-    parser.add_argument("--target_fps", type=int, default=None, help="target fps of clips")
     parser.add_argument(
         "--shorter_size", type=int, default=None, help="resize the shorter size by keeping ratio; will not do upscale"
     )
