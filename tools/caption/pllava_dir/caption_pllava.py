@@ -194,7 +194,7 @@ def parse_args():
         "--batch_size",
         type=int,
         required=False,
-        default=1,
+        default=6,
     )
     parser.add_argument(
         "--csv_path",

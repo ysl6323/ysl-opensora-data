@@ -18,6 +18,7 @@ tqdm.pandas()
 def print_log(s, logger=None):
     if logger is not None:
         logger.info(s)
+        # pass
     else:
         print(s)
 
@@ -32,7 +33,7 @@ def process_single_row(row, args):
     #     return False
 
     if args.no_scene_split: #如果no_scene_split为True，则按照新的裁剪策略
-        split_video_fixed_frames(video_path, args.save_dir, shorter_size=args.shorter_size, output_fps=args.output_fps, logger=logger) #ADD output_fps here
+        split_video_fixed_frames(video_path, args.save_dir, shorter_size=args.shorter_size, output_fps=args.output_fps, logger=None) #ADD output_fps here
         return True
 
 
@@ -165,7 +166,7 @@ def convert_video_to_cfr(input_path, output_path, target_fps, logger=None):
     try:
         clip = VideoFileClip(input_path)
         clip = clip.set_fps(target_fps)
-        clip.write_videofile(output_path, fps=target_fps, codec="libx264", audio_codec="aac") # 可以设置更多参数，如编码器
+        clip.write_videofile(output_path, fps=target_fps, codec="libx264", audio_codec="aac", logger=None) # 可以设置更多参数，如编码器
         print_log(f"Converted video to fixed FPS: {output_path}", logger=logger)
         clip.close()
         return True
@@ -235,7 +236,7 @@ def split_video_fixed_frames(video_path, save_dir, shorter_size=None, logger=Non
                 new_height = int(shorter_size * original_height / original_width)
                 clip = clip.resize((shorter_size, new_height))
 
-        clip.write_videofile(save_path, fps=output_fps)
+        clip.write_videofile(save_path, fps=output_fps, logger=None)
 
         print_log(f"Video clip saved to '{save_path}'", logger=logger)
 

@@ -14,6 +14,8 @@ ROOT_META="/path/to/meta/folder"
 # # 2.2 Cut video into clips based on scenes. This should produce video clips under ${ROOT_CLIPS}
 # python -m tools.scene_cut.cut ${ROOT_META}/meta_info_fmin1_timestamp.csv --save_dir ${ROOT_CLIPS}
 
+python -m tools.scene_cut.cut /data/shanglinyuan/ysl-opensora-data/datasets_csv/VidGen/Subset1/video_info_fmin1.csv --save_dir /data/shanglinyuan/ysl-opensora-data/datasets_csv/VidGen/Test_data3 --no_scene_split --output_fps 15
+
 # # 2.3 Create a meta file for video clips. This should output ${ROOT_META}/meta_clips.csv
 # python -m tools.datasets.convert video ${ROOT_CLIPS} --output ${ROOT_META}/meta_clips.csv
 
@@ -36,8 +38,7 @@ torchrun --standalone --nproc_per_node 4 tools/scoring/optical_flow/inference.py
 # # 4.1 Generate caption. This should output ${ROOT_META}/meta_clips_info_fmin1_aes_aesmin5_caption_part*.csv
 torchrun --nproc_per_node 4 --standalone -m tools.caption.caption_llava /data/shanglinyuan/ysl-opensora-data/datasets_csv/Sports-1M/subset17_cut/video_info_fmin1_aes_flow_aesmin3.0_flowmin1.5.csv --dp-size 4 --tp-size 1 --model-path /data/shanglinyuan/ysl-opensora-data/tools/caption/pllava_dir/PLLaVA/MODELS/pllava-7b --prompt video
 
-PYTHONPATH='$PYTHONPATH:/data/shanglinyuan/ysl-opensora-data/tools/caption/pllava_dir/PLLaVA' python tools/caption/pllava_dir/caption_pllava.py --pretrained_model_name_or_path /data/shanglinyuan/ysl-opensora-data/tools/caption/pllava_dir/PLLaVA/MODELS/pllava-7b --use_lora --lora_alpha 4 --num_frames 4 --weight_dir /data/shanglinyuan/ysl-opensora-data/tools/caption/pllava_dir/PLLaVA/MODELS/pllava-7b --csv_path /data/shanglinyuan/ysl-opensora-data/datasets_csv/Sports-1M/subset17_cut/video_info_fmin1_aes_flow_aesmin3.0_flowmin1.5.csv --pooling_shape 4-12-12
-
+PYTHONPATH=$PYTHONPATH:/data/shanglinyuan/ysl-opensora-data/tools/caption/pllava_dir/PLLaVA python tools/caption/pllava_dir/caption_pllava.py --pretrained_model_name_or_path /data/shanglinyuan/ysl-opensora-data/tools/caption/pllava_dir/PLLaVA/MODELS/pllava-7b --use_lora --lora_alpha 4 --num_frames 4 --weight_dir /data/shanglinyuan/ysl-opensora-data/tools/caption/pllava_dir/PLLaVA/MODELS/pllava-7b --csv_path /data/shanglinyuan/ysl-opensora-data/datasets_csv/Sports-1M/subset17_cut/video_info_fmin1_fmax500_aes_flow_aesmin3.5_flowmin1.5_flowmax100.0.csv --pooling_shape 4-12-12 --batch_size 6
 
 # # 4.2 Merge caption results. This should output ${ROOT_META}/meta_clips_caption.csv
 # python -m tools.datasets.datautil ${ROOT_META}/meta_clips_info_fmin1_aes_aesmin5_caption_part*.csv --output ${ROOT_META}/meta_clips_caption.csv

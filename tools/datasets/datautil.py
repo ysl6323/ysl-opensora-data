@@ -654,6 +654,9 @@ def main(args):
     if args.flowmin is not None:
         assert "flow" in data.columns
         data = data[data["flow"] >= args.flowmin]
+    if args.flowmax is not None:
+        assert "flow" in data.columns
+        data = data[data["flow"] <= args.flowmax]
     if args.remove_text_duplication:
         data = data.drop_duplicates(subset=["text"], keep="first")
     if args.img_only:
@@ -761,6 +764,7 @@ def parse_args():
     parser.add_argument("--aesmin", type=float, default=None, help="filter the dataset by minimum aes score")
     parser.add_argument("--matchmin", type=float, default=None, help="filter the dataset by minimum match score")
     parser.add_argument("--flowmin", type=float, default=None, help="filter the dataset by minimum flow score")
+    parser.add_argument("--flowmax", type=float, default=None, help="filter the dataset by maximum flow score")
     parser.add_argument("--fpsmax", type=float, default=None, help="filter the dataset by maximum fps")
     parser.add_argument("--img-only", action="store_true", help="only keep the image data")
     parser.add_argument("--vid-only", action="store_true", help="only keep the video data")
@@ -854,6 +858,8 @@ def get_output_path(args, input_name):
         name += f"_matchmin{args.matchmin}"
     if args.flowmin is not None:
         name += f"_flowmin{args.flowmin}"
+    if args.flowmax is not None:
+        name += f"_flowmax{args.flowmax}"
     if args.img_only:
         name += "_img"
     if args.vid_only:
