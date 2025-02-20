@@ -17,10 +17,11 @@ tqdm.pandas()
 
 def print_log(s, logger=None):
     if logger is not None:
-        logger.info(s)
-        # pass
+        # logger.info(s)
+        pass
     else:
-        print(s)
+        # print(s)
+        pass
 
 
 def process_single_row(row, args):

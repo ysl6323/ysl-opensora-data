@@ -14,7 +14,7 @@ ROOT_META="/path/to/meta/folder"
 # # 2.2 Cut video into clips based on scenes. This should produce video clips under ${ROOT_CLIPS}
 # python -m tools.scene_cut.cut ${ROOT_META}/meta_info_fmin1_timestamp.csv --save_dir ${ROOT_CLIPS}
 
-python -m tools.scene_cut.cut /data/shanglinyuan/ysl-opensora-data/datasets_csv/VidGen/Subset1/video_info_fmin1.csv --save_dir /data/shanglinyuan/ysl-opensora-data/datasets_csv/VidGen/Test_data3 --no_scene_split --output_fps 15
+python -m tools.scene_cut.cut /data/shanglinyuan/ysl-opensora-data/datasets_csv/VidGen/Subset1/video_info_fmin1.csv --save_dir /data/shanglinyuan/ysl-opensora-data/datasets_csv/VidGen/Test_data3 --no_scene_split --output_fps 15 --num_workers 20
 
 # # 2.3 Create a meta file for video clips. This should output ${ROOT_META}/meta_clips.csv
 # python -m tools.datasets.convert video ${ROOT_CLIPS} --output ${ROOT_META}/meta_clips.csv
@@ -53,3 +53,6 @@ PYTHONPATH=$PYTHONPATH:/data/shanglinyuan/ysl-opensora-data/tools/caption/pllava
 
 # # 4.4 Optionally generate tags (e.g., objects) based on the captions. This should output your_output_prefix_{key}.csv
 # torchrun --nproc_per_node 8 --standalone -m tools.caption.caption_llama3 ${ROOT_META}/meta_clips_caption_cleaned.csv --key objects --output_prefix your_output_prefix
+
+
+ torchrun --standalone --nproc_per_node 4 tools/scoring/matching/inference.py /data/sha100.0_text.csv
